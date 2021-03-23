@@ -192,7 +192,7 @@ class InvokeCloudside {
               for (let j = 0; j < resource.length; j++) {
 
                 let value = resource[j].type == 'Ref' ? res.StackResources[i].PhysicalResourceId
-                  : buildCloudValue(res.StackResources[i],resource[j].type)
+                  : buildCloudValue(res.StackResources[i],resource[j].type, resource[j].env)
 
                 if (resource[j].fn) {
                   this.serverless.service.functions[resource[j].fn].environment[
@@ -268,7 +268,7 @@ const buildCloudValue = (resource,type) => {
     case 'Arn':
       return generateArn(resource)
     default:
-      return '<FUNCTION NOT SUPPORTED>'
+      return findInEnvironment(env);
   }
 }
 
@@ -281,6 +281,16 @@ const getRdsResourceType = resourceType => {
     default:
       return null
   }
+}
+
+const findInEnvironment = (env) => {
+  let value = process.env[env];
+
+  if (value) {
+    return value;
+  }
+
+  return '<FUNCTION NOT SUPPORTED>';
 }
 
 // Generate the ARN based on service type
@@ -314,6 +324,15 @@ const generateArn = resource => {
     case 's3':
       stack.splice(3,5,'','')
       stack.push(resource.PhysicalResourceId)
+      break
+    case 'kms':
+      stack.push(`key/${resource.PhysicalResourceId}`)
+      break
+    case 'iam':
+      if (resourceType.length === 3 && resourceType[2] === 'Role') {
+        stack[3]=`:${stack[4]}`
+        stack[4]=`${resourceType[2].toLowerCase()}/${resource.PhysicalResourceId}`
+      }
       break
     default:
       return '<RESOURCE NOT SUPPORTED>'
